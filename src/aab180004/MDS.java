@@ -6,14 +6,16 @@
 
 package aab180004;
 
+
+import javax.swing.plaf.DimensionUIResource;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class MDS {
-    TreeMap<Long, MDSEntry> tree;
-    HashMap<Long, TreeSet<MDSEntry>> table;
+    HashMap<Long, MDSEntry> itemTable;
+    HashMap<Long, LinkedList<Long>> descTable;
 
     private class MDSEntry{
         long id;
@@ -27,15 +29,6 @@ public class MDS {
 
         }
 
-        @Override
-        public boolean equals(Object other){
-            MDSEntry o = (MDSEntry) other;
-            if(this.id == o.id)
-                return true;
-            else
-                return false;
-        }
-
     }
 
     class PriceComparator implements Comparator<MDSEntry>{
@@ -45,11 +38,6 @@ public class MDS {
             if(o1.price.compareTo(o2.price) == 0)
                 return -1;
             return o1.price.compareTo(o2.price);
-        }
-
-        @Override
-        public boolean equals(Object other){
-            return true;
         }
 
     }
@@ -64,8 +52,8 @@ public class MDS {
 
     // Constructors
     public MDS() {
-        this.tree = new TreeMap<>();
-        this.table = new HashMap<>();
+        this.itemTable = new HashMap<>();
+        this.descTable = new HashMap<>();
     }
 
     /* Public methods of MDS. Do not change their signatures.
@@ -79,23 +67,23 @@ public class MDS {
     public int insert(long id, Money price, java.util.List<Long> list) {
         ArrayList<Long> localList = new ArrayList<>(list);
         MDSEntry newEntry = new MDSEntry(id,localList,price);
-        if(tree.containsKey(id)){
+        if(itemTable.containsKey(id)){
             if(list.size() == 0){
-                localList = tree.get(id).description;
+                localList = itemTable.get(id).description;
             }
             delete(id);
             insert(id,price,localList);
 	        return 0;
         }else{
-	        tree.put(id,newEntry);
+	        itemTable.put(id,newEntry);
 	        for(Long desc : localList){
-	            TreeSet<MDSEntry> set = table.get(desc);
+	            LinkedList<Long> set = descTable.get(desc);
 	            if(set == null){
-	                TreeSet<MDSEntry> newSet = new TreeSet<>(new PriceComparator());
-	                newSet.add(newEntry);
-	                table.put(desc, newSet);
+	                LinkedList<Long> newSet = new LinkedList<>();
+	                newSet.add(id);
+	                descTable.put(desc, newSet);
                 }else{
-	                set.add(newEntry);
+	                set.add(id);
                 }
             }
             return 1;
@@ -104,7 +92,7 @@ public class MDS {
 
     // b. Find(id): return price of item with given id (or 0, if not found).
     public Money find(long id) {
-	    MDSEntry entry = tree.get(id);
+	    MDSEntry entry = itemTable.get(id);
         if(entry != null){
             return entry.price;
         }else{
@@ -118,19 +106,19 @@ public class MDS {
        or 0, if such an id did not exist.
     */
     public long delete(long id) {
-        MDSEntry entry = tree.remove(id);
+        MDSEntry entry = itemTable.remove(id);
         if(entry ==  null){
             return 0;
         }else{
             long sum = 0;
             for(Long desc : entry.description){
-                TreeSet<MDSEntry> set = table.get(desc);
+                LinkedList<Long> set = descTable.get(desc);
                 if(set!=null){
                     sum += desc;
                     if (set.size() > 1) {
-                        set.remove(entry);
+                        set.remove(entry.id);
                     } else {
-                        table.remove(desc);
+                        descTable.remove(desc);
                     }
                 }
             }
@@ -146,11 +134,19 @@ public class MDS {
        Return 0 if there is no such item.
     */
     public Money findMinPrice(long n) {
-        TreeSet<MDSEntry> set = table.get(n);
-        if(set != null)
-            return set.first().price;
-	    else
+        LinkedList<Long> set = descTable.get(n);
+        Money min = new Money(Long.MAX_VALUE,Integer.MAX_VALUE);
+        if(set != null) {
+            for (Long id : set) {
+                MDSEntry entry = itemTable.get(id);
+                if (entry != null && entry.price.compareTo(min) < 0) {
+                    min = entry.price;
+                }
+            }
+            return min;
+        }else{
             return new Money("0.0");
+        }
     }
 
     /* 
@@ -159,11 +155,20 @@ public class MDS {
        Return 0 if there is no such item.
     */
     public Money findMaxPrice(long n) {
-        TreeSet<MDSEntry> set = table.get(n);
-        if(set != null)
-            return set.last().price;
-        else
+        LinkedList<Long> set = descTable.get(n);
+        Money max = new Money("0.0");
+        if(set != null) {
+            for (Long id : set) {
+                MDSEntry entry = itemTable.get(id);
+                if (entry != null && entry.price.compareTo(max) > 0) {
+                    max = entry.price;
+                }
+            }
+            return max;
+        }else
+        {
             return new Money("0.0");
+        }
     }
 
     /* 
@@ -174,10 +179,11 @@ public class MDS {
     public int findPriceRange(long n, Money low, Money high) {
         if(low.compareTo(high) >0 )
             return 0;
-        TreeSet<MDSEntry> set = (TreeSet<MDSEntry>) table.get(n);
+        LinkedList<Long> set = descTable.get(n);
         int count = 0;
-        for(MDSEntry entry : set){
-            if(entry.price.compareTo(low) >=0 && entry.price.compareTo(high) <=0 ){
+        for(Long id : set){
+            MDSEntry entry = itemTable.get(id);
+            if(entry != null && entry.price.compareTo(low) >=0 && entry.price.compareTo(high) <=0 ){
                 count++;
             }
         }
@@ -190,21 +196,23 @@ public class MDS {
        prices of items.  Returns the sum of the net increases of the prices.
     */
     public Money priceHike(long l, long h, double rate) {
-	    SortedMap<Long,MDSEntry> map = tree.subMap(l,true,h,true);
-	    double netIncrease = 0;
-        DecimalFormat df = new DecimalFormat("#.##");
-        df.setRoundingMode(RoundingMode.DOWN);
-	    for(Map.Entry<Long,MDSEntry> entry : map.entrySet()){
-            double price = entry.getValue().price.d + 0.01 * entry.getValue().price.c;
-	        double increase = price * rate / 100;
-	        price += increase;
-            String s = df.format(price);
-            entry.getValue().price = new Money(s);
-            netIncrease+= increase;
-
+        long netIncrease = 0;
+        for (Map.Entry<Long, MDSEntry> item : itemTable.entrySet()) {
+            Long id = item.getKey();
+            MDSEntry entry = item.getValue();
+            if(id >= l && id <= h){
+                long price = entry.price.d * 100 + entry.price.c;
+                long increase = (long) (price * rate / 100);
+                price += increase;
+                int cents = (int) price % 100;
+                long dollar = price / 100;
+                entry.price = new Money(dollar,cents);
+                netIncrease+= increase;
+            }
         }
-        String s = df.format(netIncrease);
-        return new Money(s);
+        int cents = (int) netIncrease % 100;
+        long dollar = netIncrease / 100;
+        return new Money(dollar,cents);
     }
 
     /*
@@ -213,13 +221,15 @@ public class MDS {
       id's description.  Return the sum of the numbers that are actually
       deleted from the description of id.  Return 0 if there is no such id.
     */
-    public long removeNames(long id, java.util.List<Long> list) {
-        MDSEntry entry = tree.get(id);
+    public long removeNames(long id, java.util.List<Long> list) throws IllegalAccessException {
+        MDSEntry entry = itemTable.get(id);
         long sum = 0;
         for(Long desc : list){
-            TreeSet<MDSEntry> set = table.get(desc);
-            if(set.remove(entry)){
+            LinkedList<Long> set = descTable.get(desc);
+            if(set!=null){
+                if(set.remove(entry.id)){
                 sum+=desc;
+                }
             }
         }
         entry.description.removeAll(list);
@@ -256,16 +266,16 @@ public class MDS {
         LinkedList<Long> list = new LinkedList<>();
         list.add(0L);
         list.add(1L);
-        for(int i = 0 ; i < 10; i++){
+        for(int i = 1 ; i < 11; i++){
             mds.insert(i,new Money(i,0),list);
         }
 //        System.out.println(mds.delete(1));
 //        System.out.println(mds.find(1));
 //        System.out.println(mds.findMinPrice(0));
 //        System.out.println(mds.findMaxPrice(1));
-//        System.out.println(mds.findPriceRange(0,new Money("2"),new Money("7")));
-        System.out.println(mds.removeNames(1,list));
-        //System.out.println(mds.priceHike(1,2,10));
+        System.out.println(mds.priceHike(1,2,10));
+        System.out.println(mds.findPriceRange(0,new Money("1.10"),new Money("2.20")));
+        //System.out.println(mds.removeNames(1,list));
 
 //        Money m1 = new Money("10000.10");
 //        Money m2 = new Money("2.80");
