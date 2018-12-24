@@ -72,33 +72,33 @@ is a single number, which is the sum of the following values obtained
 by the algorithm as it processes the input.
 
 
-Sample input:
-Insert 22 19.97 475 1238 9742 0
-New item with id=22, price="$19.97", name="475 1238 9742"
-Return: 1
+Sample input:<br>
+Insert 22 19.97 475 1238 9742 0<br>
+New item with id=22, price="$19.97", name="475 1238 9742"<br>
+Return: 1<br>
 
-Insert 12 96.92 44 109 0
-Second item with id=12, price="96.92", name="44 109"
-Return: 1
+Insert 12 96.92 44 109 0<br>
+Second item with id=12, price="96.92", name="44 109"<br>
+Return: 1<br>
 
-Insert 37 47.44 109 475 694 88 0
-Another item with id=37, price="47.44", name="109 475 694 88"
-Return: 1
+Insert 37 47.44 109 475 694 88 0<br>
+Another item with id=37, price="47.44", name="109 475 694 88"<br>
+Return: 1<br>
 
-PriceHike 10 22 10
-10% price increase for id=12 and id=22
-New price of 12: 106.61, Old price = 96.92.  Net increase = 9.69
-New price of 22: 21.96.  Old price = 19.97.  Net increase = 1.99
-Return: 11.68  (sum of 9.69 and 1.99).  Added to total: 11
+PriceHike 10 22 10<br>
+10% price increase for id=12 and id=22<br>
+New price of 12: 106.61, Old price = 96.92.  Net increase = 9.69<br>
+New price of 22: 21.96.  Old price = 19.97.  Net increase = 1.99<br>
+Return: 11.68  (sum of 9.69 and 1.99).  Added to total: 11<br>
 
-FindMaxPrice 475		
-Return: 47.44 (id of items considered: 22, 37).  Added to total: 47
+FindMaxPrice 475<br>		
+Return: 47.44 (id of items considered: 22, 37).  Added to total: 47<br>
 
-Delete 37
-Return: 1366 (=109+475+694+88)
+Delete 37<br>
+Return: 1366 (=109+475+694+88)<br>
 
-FindMaxPrice 475		
-Return: 21.96 (id of items considered: 22).  Added to total: 21
+FindMaxPrice 475<br>		
+Return: 21.96 (id of items considered: 22).  Added to total: 21<br>
 
-Output:
-1448
+Output:<br>
+1448<br>
